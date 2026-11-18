@@ -72,6 +72,12 @@ fn main() {
         return;
     }
     let background = args.iter().any(|a| a == "--background");
+    // Open Settings on a given page (0 General, 1 Sounds, 2 Auto-mute, 3 Sound packs, 4 About).
+    let page = args
+        .iter()
+        .position(|a| a == "--page")
+        .and_then(|i| args.get(i + 1))
+        .and_then(|p| p.parse::<i32>().ok());
 
     let instance = match system::single_instance() {
         system::Instance::First(guard) => guard,
@@ -80,7 +86,7 @@ fn main() {
 
     init_logging();
     log::info!("Clatter {} starting", env!("CARGO_PKG_VERSION"));
-    if let Err(e) = app::run(instance, background) {
+    if let Err(e) = app::run(instance, background, page) {
         log::error!("fatal: {e:#}");
     }
 }

@@ -72,7 +72,7 @@ pub struct App {
     _instance: InstanceGuard,
 }
 
-pub fn run(instance: InstanceGuard, background: bool) -> anyhow::Result<()> {
+pub fn run(instance: InstanceGuard, background: bool, page: Option<i32>) -> anyhow::Result<()> {
     let (settings, first_run) = Settings::load();
     let (audio, key_tx, waker) = Audio::start(settings.output_device.clone());
     let shared = Arc::new(hook::Shared::default());
@@ -109,8 +109,14 @@ pub fn run(instance: InstanceGuard, background: bool) -> anyhow::Result<()> {
 
     with_app(move |app| {
         app.startup();
-        if !background || first_run {
+        if !background || first_run || page.is_some() {
             app.show_settings();
+        }
+        if let (Some(page), Some(w)) = (page, &app.window) {
+            w.set_page(page.clamp(0, 4));
+            if page == 2 {
+                app.refresh_running_apps();
+            }
         }
     });
 

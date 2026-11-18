@@ -2,6 +2,14 @@
 
 Satisfying mechanical keyboard sounds for Windows — a tray app in the spirit of Klack for Mac.
 
+**[Download the latest release](https://github.com/Devalfaz/clatter/releases/latest)** — a single `Clatter.exe`, no installer.
+
+| Switches | General |
+| --- | --- |
+| ![Switch picker](docs/screenshots/sounds.png) | ![General settings](docs/screenshots/general.png) |
+
+![Auto-mute settings](docs/screenshots/auto-mute.png)
+
 - Separate key-down and key-up sounds, randomized pitch and level, several variants per key
 - Spatial audio: keys pan left/right by where they sit on the keyboard
 - Six original switch profiles synthesized in code (Obsidian, Marshmallow, Glass, Click Jacket, Typewriter, Chiclet)
@@ -27,6 +35,7 @@ Useful commands:
 - `cargo test` — unit tests (key map, synth levels, pack parsing, settings)
 - `clatter.exe --export-wavs <dir>` — write every built-in sound as WAV folder packs (for auditioning or editing)
 - `clatter.exe --background` — start in the tray without opening settings (used by launch at login)
+- `clatter.exe --page <n>` — open Settings on a page (0 General, 1 Sounds, 2 Auto-mute, 3 Sound packs, 4 About)
 
 Settings, packs and the log live in `%APPDATA%\Clatter`.
 
