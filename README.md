@@ -48,3 +48,7 @@ Missing groups fall back to `regular`; up sounds are optional. `--export-wavs` p
 | `ui/app.slint` | Settings window (Slint, Fluent style) |
 
 The settings window uses [Slint](https://slint.dev) under its royalty-free license (attribution on the About page).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
