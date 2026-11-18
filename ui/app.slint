@@ -1,0 +1,870 @@
+import { Button, ComboBox, Slider, Switch, LineEdit, ScrollView, Palette, AboutSlint } from "std-widgets.slint";
+
+export struct SwitchItem {
+    id: string,
+    name: string,
+    description: string,
+    builtin: bool,
+}
+
+// Segoe Fluent Icons code points (Windows 11).
+global Icons {
+    out property <string> settings: "\u{E713}";
+    out property <string> keyboard: "\u{E765}";
+    out property <string> moon: "\u{E708}";
+    out property <string> package: "\u{E7B8}";
+    out property <string> info: "\u{E946}";
+    out property <string> play: "\u{E768}";
+    out property <string> delete: "\u{E74D}";
+    out property <string> volume-low: "\u{E993}";
+    out property <string> volume-high: "\u{E995}";
+    out property <string> check: "\u{E73E}";
+}
+
+component Glyph inherits Text {
+    font-family: "Segoe Fluent Icons";
+    vertical-alignment: center;
+    horizontal-alignment: center;
+    color: Palette.foreground;
+}
+
+component NavItem inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked;
+
+    height: 36px;
+    border-radius: 5px;
+    background: selected ? Palette.foreground.transparentize(0.92) : ta.has-hover ? Palette.foreground.transparentize(0.95) : transparent;
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 14px;
+        spacing: 14px;
+        Glyph {
+            text: root.icon;
+            font-size: 15px;
+            width: 18px;
+        }
+
+        Text {
+            text: root.label;
+            font-size: 13px;
+            vertical-alignment: center;
+            color: Palette.foreground;
+        }
+    }
+
+    if root.selected: Rectangle {
+        x: 0;
+        width: 3px;
+        height: 16px;
+        y: (root.height - self.height) / 2;
+        border-radius: 1.5px;
+        background: Palette.accent-background;
+    }
+}
+
+component Card inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+
+    background: Palette.control-background;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: Palette.border;
+    min-height: 64px;
+
+    HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 16px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+        spacing: 16px;
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            horizontal-stretch: 1;
+            Text {
+                text: root.title;
+                font-size: 13px;
+                color: Palette.foreground;
+            }
+
+            if root.subtitle != "": Text {
+                text: root.subtitle;
+                font-size: 11.5px;
+                wrap: word-wrap;
+                color: Palette.foreground.transparentize(0.38);
+            }
+        }
+
+        HorizontalLayout {
+            alignment: end;
+            spacing: 8px;
+            @children
+        }
+    }
+}
+
+component SectionHeader inherits Text {
+    font-size: 14px;
+    font-weight: 600;
+    color: Palette.foreground;
+}
+
+component SwitchCard inherits Rectangle {
+    in property <SwitchItem> item;
+    in property <bool> selected;
+    callback clicked;
+    callback preview;
+
+    background: ta.has-hover && !selected ? Palette.control-background.darker(0.03) : Palette.control-background;
+    border-radius: 6px;
+    border-width: selected ? 2px : 1px;
+    border-color: selected ? Palette.accent-background : Palette.border;
+    min-height: 60px;
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 12px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        spacing: 14px;
+
+        Rectangle {
+            width: 20px;
+            height: 20px;
+            y: (parent.height - self.height) / 2;
+            border-radius: 10px;
+            border-width: root.selected ? 0px : 1.5px;
+            border-color: Palette.foreground.transparentize(0.5);
+            background: root.selected ? Palette.accent-background : transparent;
+            Glyph {
+                text: root.selected ? Icons.check : "";
+                font-size: 11px;
+                color: Palette.accent-foreground;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            horizontal-stretch: 1;
+            Text {
+                text: root.item.name;
+                font-size: 13px;
+                font-weight: root.selected ? 600 : 400;
+                color: Palette.foreground;
+            }
+
+            Text {
+                text: root.item.description;
+                font-size: 11.5px;
+                wrap: word-wrap;
+                color: Palette.foreground.transparentize(0.38);
+            }
+        }
+
+        Button {
+            text: "Preview";
+            clicked => {
+                root.preview();
+            }
+        }
+    }
+}
+
+export component SettingsWindow inherits Window {
+    title: "Clatter";
+    icon: root.app-icon;
+    preferred-width: 820px;
+    preferred-height: 600px;
+    min-width: 680px;
+    min-height: 480px;
+    background: Palette.background;
+
+    in property <image> app-icon;
+    in property <string> version;
+    in-out property <int> page: 0;
+
+    // General
+    in-out property <bool> enabled: true;
+    in-out property <float> volume: 60; // 0..100
+    in-out property <string> hotkey-text: "Ctrl+Alt+K";
+    in-out property <bool> recording-hotkey: false;
+    in-out property <bool> launch-at-login;
+    in-out property <bool> show-tray-icon: true;
+    in-out property <[string]> output-devices: ["System default"];
+    in-out property <int> output-device-index: 0;
+
+    // Sounds
+    in-out property <[SwitchItem]> switches;
+    in-out property <string> current-switch;
+    in-out property <float> pitch: 40; // 0..100
+    in-out property <float> spatial: 60; // 0..100
+    in-out property <bool> key-up: true;
+    in-out property <bool> modifiers: true;
+    in-out property <bool> numpad: true;
+    in-out property <bool> function-keys: true;
+
+    // Auto-mute
+    in-out property <bool> mute-fullscreen: true;
+    in-out property <[string]> exclusions;
+    in-out property <[string]> running-apps;
+    in-out property <int> running-app-index: 0;
+
+    // Packs
+    in-out property <string> pack-status;
+
+    out property <int> volume-preset: abs(root.volume - 35) < 0.5 ? 0 : abs(root.volume - 60) < 0.5 ? 1 : abs(root.volume - 100) < 0.5 ? 2 : -1;
+
+    callback changed();
+    callback select-switch(string);
+    callback preview-switch(string);
+    callback hotkey-record-start();
+    callback hotkey-record-cancel();
+    // Returns true when the combination was accepted.
+    callback hotkey-captured(string, bool, bool, bool, bool) -> bool;
+    callback refresh-running-apps();
+    callback add-exclusion(string);
+    callback remove-exclusion(int);
+    callback browse-exclusion();
+    callback import-pack-folder();
+    callback import-pack-zip();
+    callback open-packs-folder();
+    callback remove-pack(string);
+
+    function set-volume(v: float) {
+        root.volume = v;
+        root.changed();
+    }
+
+    HorizontalLayout {
+        // Sidebar
+        VerticalLayout {
+            width: 220px;
+            padding: 10px;
+            padding-top: 16px;
+            spacing: 2px;
+
+            HorizontalLayout {
+                padding-left: 10px;
+                padding-bottom: 14px;
+                spacing: 10px;
+                Image {
+                    source: root.app-icon;
+                    width: 28px;
+                    height: 28px;
+                }
+
+                Text {
+                    text: "Clatter";
+                    font-size: 17px;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                    color: Palette.foreground;
+                }
+            }
+
+            NavItem {
+                icon: Icons.settings;
+                label: "General";
+                selected: root.page == 0;
+                clicked => {
+                    root.page = 0;
+                }
+            }
+
+            NavItem {
+                icon: Icons.keyboard;
+                label: "Sounds";
+                selected: root.page == 1;
+                clicked => {
+                    root.page = 1;
+                }
+            }
+
+            NavItem {
+                icon: Icons.moon;
+                label: "Auto-mute";
+                selected: root.page == 2;
+                clicked => {
+                    root.page = 2;
+                    root.refresh-running-apps();
+                }
+            }
+
+            NavItem {
+                icon: Icons.package;
+                label: "Sound packs";
+                selected: root.page == 3;
+                clicked => {
+                    root.page = 3;
+                }
+            }
+
+            NavItem {
+                icon: Icons.info;
+                label: "About";
+                selected: root.page == 4;
+                clicked => {
+                    root.page = 4;
+                }
+            }
+
+            Rectangle {
+                vertical-stretch: 1;
+            }
+
+            Text {
+                x: 12px;
+                text: root.enabled ? "Sounds on" : "Sounds off";
+                font-size: 11.5px;
+                color: Palette.foreground.transparentize(0.45);
+            }
+        }
+
+        // Content
+        sv := ScrollView {
+            horizontal-stretch: 1;
+            viewport-width: self.visible-width;
+            viewport-height: max(self.visible-height, content.preferred-height);
+
+            content := VerticalLayout {
+                width: sv.visible-width;
+                padding: 28px;
+                padding-top: 22px;
+                spacing: 6px;
+                alignment: start;
+
+                Text {
+                    text: root.page == 0 ? "General" : root.page == 1 ? "Sounds" : root.page == 2 ? "Auto-mute" : root.page == 3 ? "Sound packs" : "About";
+                    font-size: 26px;
+                    font-weight: 600;
+                    color: Palette.foreground;
+                }
+
+                Rectangle {
+                    height: 12px;
+                }
+
+                // ---------------- General ----------------
+                if root.page == 0: VerticalLayout {
+                    spacing: 6px;
+
+                    Card {
+                        title: "Keyboard sounds";
+                        subtitle: "Play a mechanical switch sound every time you press a key.";
+                        Switch {
+                            checked <=> root.enabled;
+                            toggled => {
+                                root.changed();
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        background: Palette.control-background;
+                        border-radius: 6px;
+                        border-width: 1px;
+                        border-color: Palette.border;
+
+                        VerticalLayout {
+                            padding-left: 18px;
+                            padding-right: 16px;
+                            padding-top: 12px;
+                            padding-bottom: 12px;
+                            spacing: 10px;
+
+                            HorizontalLayout {
+                                spacing: 16px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    spacing: 2px;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: "Volume";
+                                        font-size: 13px;
+                                        color: Palette.foreground;
+                                    }
+
+                                    Text {
+                                        text: "Separate from your system volume.";
+                                        font-size: 11.5px;
+                                        color: Palette.foreground.transparentize(0.38);
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 6px;
+                                    alignment: end;
+                                    Button {
+                                        text: "Soft";
+                                        primary: root.volume-preset == 0;
+                                        clicked => {
+                                            root.set-volume(35);
+                                        }
+                                    }
+
+                                    Button {
+                                        text: "Balanced";
+                                        primary: root.volume-preset == 1;
+                                        clicked => {
+                                            root.set-volume(60);
+                                        }
+                                    }
+
+                                    Button {
+                                        text: "Loud";
+                                        primary: root.volume-preset == 2;
+                                        clicked => {
+                                            root.set-volume(100);
+                                        }
+                                    }
+                                }
+                            }
+
+                            HorizontalLayout {
+                                spacing: 10px;
+                                Glyph {
+                                    text: Icons.volume-low;
+                                    font-size: 14px;
+                                    width: 18px;
+                                }
+
+                                Slider {
+                                    minimum: 0;
+                                    maximum: 100;
+                                    value <=> root.volume;
+                                    changed => {
+                                        root.changed();
+                                    }
+                                }
+
+                                Glyph {
+                                    text: Icons.volume-high;
+                                    font-size: 14px;
+                                    width: 18px;
+                                }
+                            }
+                        }
+                    }
+
+                    Card {
+                        title: "Toggle shortcut";
+                        subtitle: root.recording-hotkey ? "Press the new shortcut (with Ctrl, Alt or Win). Esc cancels." : "Turn sounds on or off from anywhere.";
+
+                        hk-scope := FocusScope {
+                            width: 0px;
+                            key-pressed(event) => {
+                                if !root.recording-hotkey {
+                                    return reject;
+                                }
+                                if event.text == Key.Escape {
+                                    root.recording-hotkey = false;
+                                    root.hotkey-record-cancel();
+                                    return accept;
+                                }
+                                if root.hotkey-captured(event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta) {
+                                    root.recording-hotkey = false;
+                                }
+                                accept
+                            }
+                            focus-lost(reason) => {
+                                if root.recording-hotkey {
+                                    root.recording-hotkey = false;
+                                    root.hotkey-record-cancel();
+                                }
+                            }
+                        }
+
+                        Button {
+                            text: root.recording-hotkey ? "Press keys…" : root.hotkey-text;
+                            primary: root.recording-hotkey;
+                            min-width: 140px;
+                            clicked => {
+                                if root.recording-hotkey {
+                                    root.recording-hotkey = false;
+                                    root.hotkey-record-cancel();
+                                } else {
+                                    root.recording-hotkey = true;
+                                    root.hotkey-record-start();
+                                    hk-scope.focus();
+                                }
+                            }
+                        }
+                    }
+
+                    Card {
+                        title: "Output device";
+                        subtitle: "Where keyboard sounds are played.";
+                        ComboBox {
+                            min-width: 240px;
+                            model: root.output-devices;
+                            current-index <=> root.output-device-index;
+                            selected => {
+                                root.changed();
+                            }
+                        }
+                    }
+
+                    Card {
+                        title: "Launch at login";
+                        subtitle: "Start Clatter quietly in the background when you sign in.";
+                        Switch {
+                            checked <=> root.launch-at-login;
+                            toggled => {
+                                root.changed();
+                            }
+                        }
+                    }
+
+                    Card {
+                        title: "Show icon in the system tray";
+                        subtitle: "When hidden, open Clatter from the Start menu to get back here.";
+                        Switch {
+                            checked <=> root.show-tray-icon;
+                            toggled => {
+                                root.changed();
+                            }
+                        }
+                    }
+                }
+
+                // ---------------- Sounds ----------------
+                if root.page == 1: VerticalLayout {
+                    spacing: 6px;
+
+                    SectionHeader {
+                        text: "Switches";
+                    }
+
+                    for item in root.switches: SwitchCard {
+                        item: item;
+                        selected: item.id == root.current-switch;
+                        clicked => {
+                            root.select-switch(item.id);
+                        }
+                        preview => {
+                            root.preview-switch(item.id);
+                        }
+                    }
+
+                    Rectangle {
+                        height: 14px;
+                    }
+
+                    SectionHeader {
+                        text: "Feel";
+                    }
+
+                    Card {
+                        title: "Key release sounds";
+                        subtitle: "Play a lighter sound when a key comes back up.";
+                        Switch {
+                            checked <=> root.key-up;
+                            toggled => {
+                                root.changed();
+                            }
+                        }
+                    }
+
+                    Card {
+                        title: "Pitch variation";
+                        subtitle: "Small random pitch changes so repeated keys sound natural.";
+                        Slider {
+                            min-width: 200px;
+                            minimum: 0;
+                            maximum: 100;
+                            value <=> root.pitch;
+                            changed => {
+                                root.changed();
+                            }
+                        }
+                    }
+
+                    Card {
+                        title: "Spatial audio";
+                        subtitle: "Keys on the left sound from the left, keys on the right from the right.";
+                        Slider {
+                            min-width: 200px;
+                            minimum: 0;
+                            maximum: 100;
+                            value <=> root.spatial;
+                            changed => {
+                                root.changed();
+                            }
+                        }
+                    }
+
+                    Card {
+                        title: "Modifier keys";
+                        subtitle: "Shift, Ctrl, Alt and Windows keys.";
+                        Switch {
+                            checked <=> root.modifiers;
+                            toggled => {
+                                root.changed();
+                            }
+                        }
+                    }
+
+                    Card {
+                        title: "Number pad";
+                        Switch {
+                            checked <=> root.numpad;
+                            toggled => {
+                                root.changed();
+                            }
+                        }
+                    }
+
+                    Card {
+                        title: "Function and media keys";
+                        subtitle: "F1–F12, Print Screen, volume and media keys.";
+                        Switch {
+                            checked <=> root.function-keys;
+                            toggled => {
+                                root.changed();
+                            }
+                        }
+                    }
+
+                    Card {
+                        title: "Try it";
+                        LineEdit {
+                            min-width: 300px;
+                            placeholder-text: "Type here to hear your switches…";
+                        }
+                    }
+                }
+
+                // ---------------- Auto-mute ----------------
+                if root.page == 2: VerticalLayout {
+                    spacing: 6px;
+
+                    Card {
+                        title: "Mute in full-screen apps and games";
+                        subtitle: "Also stays quiet during presentations.";
+                        Switch {
+                            checked <=> root.mute-fullscreen;
+                            toggled => {
+                                root.changed();
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 14px;
+                    }
+
+                    SectionHeader {
+                        text: "Mute in these apps";
+                    }
+
+                    Text {
+                        text: "Clatter stays quiet while one of these apps is in front.";
+                        font-size: 12px;
+                        color: Palette.foreground.transparentize(0.38);
+                    }
+
+                    Rectangle {
+                        height: 4px;
+                    }
+
+                    for app[i] in root.exclusions: Card {
+                        title: app;
+                        min-height: 48px;
+                        Button {
+                            text: "Remove";
+                            clicked => {
+                                root.remove-exclusion(i);
+                            }
+                        }
+                    }
+
+                    if root.exclusions.length == 0: Text {
+                        text: "No apps yet.";
+                        font-size: 12px;
+                        color: Palette.foreground.transparentize(0.5);
+                    }
+
+                    Rectangle {
+                        height: 6px;
+                    }
+
+                    Card {
+                        title: "Add an app";
+                        subtitle: "Pick one that is running now, or browse for its .exe file.";
+                        ComboBox {
+                            min-width: 220px;
+                            model: root.running-apps;
+                            current-index <=> root.running-app-index;
+                        }
+
+                        Button {
+                            text: "Add";
+                            enabled: root.running-apps.length > 0;
+                            clicked => {
+                                root.add-exclusion(root.running-apps[root.running-app-index]);
+                            }
+                        }
+
+                        Button {
+                            text: "Browse…";
+                            clicked => {
+                                root.browse-exclusion();
+                            }
+                        }
+                    }
+                }
+
+                // ---------------- Sound packs ----------------
+                if root.page == 3: VerticalLayout {
+                    spacing: 6px;
+
+                    Text {
+                        text: "Import real switch recordings. Clatter reads Mechvibes sound packs (a folder or .zip with a config.json) and its own folder packs. Imported packs show up under Sounds and in the tray menu.";
+                        wrap: word-wrap;
+                        font-size: 12.5px;
+                        color: Palette.foreground.transparentize(0.25);
+                    }
+
+                    Rectangle {
+                        height: 8px;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: start;
+                        Button {
+                            text: "Import folder…";
+                            primary: true;
+                            clicked => {
+                                root.import-pack-folder();
+                            }
+                        }
+
+                        Button {
+                            text: "Import .zip…";
+                            clicked => {
+                                root.import-pack-zip();
+                            }
+                        }
+
+                        Button {
+                            text: "Open packs folder";
+                            clicked => {
+                                root.open-packs-folder();
+                            }
+                        }
+                    }
+
+                    if root.pack-status != "": Text {
+                        text: root.pack-status;
+                        wrap: word-wrap;
+                        font-size: 12px;
+                        color: Palette.foreground.transparentize(0.2);
+                    }
+
+                    Rectangle {
+                        height: 10px;
+                    }
+
+                    SectionHeader {
+                        text: "Installed packs";
+                    }
+
+                    for item in root.switches: VerticalLayout {
+                        if !item.builtin: Card {
+                            title: item.name;
+                            subtitle: item.description;
+                            Button {
+                                text: "Preview";
+                                clicked => {
+                                    root.preview-switch(item.id);
+                                }
+                            }
+
+                            Button {
+                                text: "Remove";
+                                clicked => {
+                                    root.remove-pack(item.id);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ---------------- About ----------------
+                if root.page == 4: VerticalLayout {
+                    spacing: 10px;
+
+                    HorizontalLayout {
+                        spacing: 16px;
+                        alignment: start;
+                        Image {
+                            source: root.app-icon;
+                            width: 64px;
+                            height: 64px;
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+                            Text {
+                                text: "Clatter";
+                                font-size: 20px;
+                                font-weight: 600;
+                                color: Palette.foreground;
+                            }
+
+                            Text {
+                                text: "Version " + root.version;
+                                font-size: 12px;
+                                color: Palette.foreground.transparentize(0.38);
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: "Satisfying mechanical keyboard sounds for Windows. The built-in switches are synthesized in code. Clatter only reacts to which key you press; it never records or stores what you type.";
+                        wrap: word-wrap;
+                        font-size: 12.5px;
+                        color: Palette.foreground.transparentize(0.2);
+                    }
+
+                    Text {
+                        text: "Tip: typing in apps running as administrator won't make sounds unless Clatter also runs as administrator.";
+                        wrap: word-wrap;
+                        font-size: 12px;
+                        color: Palette.foreground.transparentize(0.4);
+                    }
+
+                    Rectangle {
+                        height: 8px;
+                    }
+
+                    AboutSlint {
+                        height: 160px;
+                    }
+                }
+            }
+        }
+    }
+}
