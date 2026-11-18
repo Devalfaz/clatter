@@ -719,7 +719,8 @@ export component SettingsWindow inherits Window {
 
                         Button {
                             text: "Add";
-                            enabled: root.running-apps.length > 0;
+                            // Index 0 is the "Choose a running app…" placeholder.
+                            enabled: root.running-app-index > 0;
                             clicked => {
                                 root.add-exclusion(root.running-apps[root.running-app-index]);
                             }

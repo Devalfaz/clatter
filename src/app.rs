@@ -507,9 +507,9 @@ impl App {
 
     fn refresh_running_apps(&mut self) {
         let Some(w) = &self.window else { return };
-        let apps: Vec<SharedString> = system::running_apps()
-            .into_iter()
-            .filter(|a| !self.settings.exclusions.contains(a))
+        // First entry is a placeholder so nothing is pre-selected.
+        let apps: Vec<SharedString> = std::iter::once("Choose a running app…".to_owned())
+            .chain(system::running_apps().into_iter().filter(|a| !self.settings.exclusions.contains(a)))
             .map(SharedString::from)
             .collect();
         w.set_running_apps(ModelRc::new(VecModel::from(apps)));
@@ -518,7 +518,7 @@ impl App {
 
     fn add_exclusion(&mut self, name: String) {
         let name = name.trim().to_lowercase();
-        if name.is_empty() || self.settings.exclusions.contains(&name) {
+        if name.is_empty() || !name.ends_with(".exe") || self.settings.exclusions.contains(&name) {
             return;
         }
         self.settings.exclusions.push(name);
